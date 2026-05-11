@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SiteAI" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>SiteAI</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0f172a;
+      --surface:   #1e293b;
+      --border:    #334155;
+      --accent:    #6366f1;
+      --accent2:   #818cf8;
+      --text:      #f1f5f9;
+      --muted:     #94a3b8;
+      --user-bg:   #6366f1;
+      --ai-bg:     #1e293b;
+      --green:     #22c55e;
+      --orange:    #f97316;
+      --red:       #ef4444;
+      --radius:    14px;
+      --safe-b:    env(safe-area-inset-bottom, 0px);
+    }
+    html, body {
+      height: 100%; width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 16px;
+      overflow: hidden;
+    }
+
+    /* ── App Shell ── */
+    #app {
+      display: flex; flex-direction: column;
+      height: 100vh; height: 100dvh;
+      max-width: 680px; margin: 0 auto;
+    }
+
+    /* ── Tab Bar ── */
+    #tabbar {
+      display: flex;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding-bottom: calc(8px + var(--safe-b));
+      z-index: 10;
+      order: 3;
+    }
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      gap: 3px; padding: 8px 4px 4px;
+      background: none; border: none; color: var(--muted);
+      font-size: 10px; cursor: pointer; transition: color .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab-btn svg { width: 22px; height: 22px; }
+    .tab-btn.active { color: var(--accent2); }
+
+    /* ── Header ── */
+    #header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px 10px;
+      padding-top: calc(14px + env(safe-area-inset-top, 0px));
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      order: 1;
+    }
+    #header h1 { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+    #kb-badge {
+      font-size: 11px; background: var(--accent); color: #fff;
+      padding: 2px 8px; border-radius: 20px;
+    }
+
+    /* ── Screens ── */
+    .screen { display: none; flex: 1; overflow: hidden; flex-direction: column; order: 2; }
+    .screen.active { display: flex; }
+
+    /* ── Chat Screen ── */
+    #messages {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .msg { display: flex; gap: 8px; align-items: flex-end; }
+    .msg.user { flex-direction: row-reverse; }
+    .bubble {
+      max-width: 78%; padding: 10px 14px; border-radius: var(--radius);
+      line-height: 1.5; font-size: 15px; white-space: pre-wrap; word-break: break-word;
+    }
+    .msg.user .bubble  { background: var(--user-bg); color: #fff; border-bottom-right-radius: 4px; }
+    .msg.ai   .bubble  { background: var(--ai-bg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .msg.system .bubble { background: transparent; border: 1px dashed var(--border); color: var(--muted); font-size: 13px; max-width: 100%; text-align: center; border-radius: 8px; }
+    .avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+              background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+    .typing-dots { display: flex; gap: 4px; padding: 4px 2px; }
+    .typing-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: bounce .9s infinite; }
+    .typing-dots span:nth-child(2) { animation-delay: .15s; }
+    .typing-dots span:nth-child(3) { animation-delay: .3s; }
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+    #chat-input-wrap {
+      display: flex; gap: 8px; padding: 10px 12px;
+      padding-bottom: calc(10px + var(--safe-b));
+      background: var(--surface); border-top: 1px solid var(--border);
+    }
+    #chat-input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 22px; padding: 10px 16px; color: var(--text);
+      font-size: 15px; resize: none; max-height: 120px; line-height: 1.4;
+      outline: none; font-family: inherit;
+    }
+    #chat-input:focus { border-color: var(--accent); }
+    #send-btn {
+      width: 42px; height: 42px; border-radius: 50%; background: var(--accent);
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: opacity .2s; align-self: flex-end;
+    }
+    #send-btn:disabled { opacity: .4; }
+    #send-btn svg { width: 18px; height: 18px; color: #fff; }
+
+    /* ── Crawler Screen ── */
+    #crawler-screen { padding: 16px; gap: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+    .card h2 { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+    .url-input-row { display: flex; gap: 8px; }
+    .url-input-row input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; color: var(--text);
+      font-size: 14px; outline: none; font-family: inherit;
+    }
+    .url-input-row input:focus { border-color: var(--accent); }
+    .btn {
+      padding: 10px 16px; border-radius: 10px; border: none; cursor: pointer;
+      font-size: 14px; font-weight: 600; transition: opacity .15s; white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:disabled { opacity: .4; pointer-events: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost   { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-danger  { background: var(--red); color: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+    /* URL list */
+    #url-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .url-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+    }
+    .url-item-info { flex: 1; min-width: 0; }
+    .url-item-url { font-size: 13px; color: var(--text); word-break: break-all; }
+    .url-item-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .url-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .badge {
+      display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px;
+      border-radius: 4px; text-transform: uppercase;
+    }
+    .badge-factual    { background: #14532d; color: var(--green); }
+    .badge-subjective { background: #431407; color: var(--orange); }
+    .badge-mixed      { background: #1e3a5f; color: #60a5fa; }
+    .badge-pending    { background: #1e1e2e; color: var(--muted); }
+
+    /* Progress */
+    #progress-wrap { display: none; flex-direction: column; gap: 8px; margin-top: 12px; }
+    #progress-wrap.visible { display: flex; }
+    #progress-bar-track { height: 6px; background: var(--bg); border-radius: 99px; overflow: hidden; }
+    #progress-bar { height: 100%; background: var(--accent); border-radius: 99px; width: 0%; transition: width .3s; }
+    #progress-text { font-size: 13px; color: var(--muted); }
+
+    /* Settings screen */
+    #settings-screen { padding: 16px; gap: 16px; overflow-y: auto; }
+    .setting-row { display: flex; flex-direction: column; gap: 6px; }
+    .setting-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+    .setting-input {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px; color: var(--text); font-size: 14px; outline: none;
+      font-family: monospace; width: 100%;
+    }
+    .setting-input:focus { border-color: var(--accent); }
+    .setting-hint { font-size: 12px; color: var(--muted); }
+    .stepper-row { display: flex; align-items: center; gap: 12px; }
+    .stepper-btn {
+      width: 34px; height: 34px; border-radius: 8px; background: var(--bg);
+      border: 1px solid var(--border); color: var(--text); font-size: 18px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .stepper-val { font-size: 15px; font-weight: 600; min-width: 24px; text-align: center; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: .4; }
+    .empty-state p { font-size: 14px; line-height: 1.5; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: calc(90px + var(--safe-b)); left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #1e293b; border: 1px solid var(--border); color: var(--text);
+      padding: 10px 18px; border-radius: 22px; font-size: 13px;
+      opacity: 0; transition: all .3s; pointer-events: none; white-space: nowrap; z-index: 100;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <h1>🌐 SiteAI</h1>
+    <span id="kb-badge">0 pages</span>
+  </div>
+
+  <!-- Chat Screen -->
+  <div id="chat-screen" class="screen active">
+    <div id="messages">
+      <div class="msg system">
+        <div class="bubble">Add a website in the <strong>Crawler</strong> tab, then ask me anything about it.</div>
+      </div>
+    </div>
+    <div id="chat-input-wrap">
+      <textarea id="chat-input" rows="1" placeholder="Ask about the website…"></textarea>
+      <button id="send-btn" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Crawler Screen -->
+  <div id="crawler-screen" class="screen">
+    <div class="card">
+      <h2>Add Website</h2>
+      <div class="url-input-row">
+        <input type="url" id="new-url-input" placeholder="https://example.com" autocorrect="off" autocapitalize="off" />
+        <button class="btn btn-primary" id="add-crawl-btn">Crawl</button>
+      </div>
+      <div id="progress-wrap">
+        <div id="progress-bar-track"><div id="progress-bar"></div></div>
+        <div id="progress-text">Starting…</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Knowledge Base</h2>
+      <div id="url-list">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <p>No websites crawled yet.<br/>Add a URL above to begin.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Screen -->
+  <div id="settings-screen" class="screen">
+    <div class="card">
+      <h2>Claude API Key</h2>
+      <div class="setting-row">
+        <label class="setting-label">API Key</label>
+        <input type="password" class="setting-input" id="api-key-input" placeholder="sk-ant-…" autocorrect="off" autocapitalize="off" />
+        <span class="setting-hint">Stored locally in your browser only. Get one free at console.anthropic.com</span>
+      </div>
+      <button class="btn btn-primary" id="save-key-btn" style="margin-top:12px;width:100%">Save Key</button>
+    </div>
+
+    <div class="card">
+      <h2>Crawler Settings</h2>
+      <div class="setting-row">
+        <label class="setting-label">Crawl Depth</label>
+        <div class="stepper-row">
+          <button class="stepper-btn" id="depth-minus">−</button>
+          <span class="stepper-val" id="depth-val">2</span>
+          <button class="stepper-btn" id="depth-plus">+</button>
+          <span class="setting-hint" style="flex:1">Levels to follow from homepage</span>
+        </div>
+      </div>
+      <div class="setting-row" style="margin-top:14px">
+        <label class="setting-label">Max Pages</label>
+        <div class="stepper-row">
+          <button class="stepper-btn" id="pages-minus">−</button>
+          <span class="stepper-val" id="pages-val">40</span>
+          <button class="stepper-btn" id="pages-plus">+</button>
+          <span class="setting-hint" style="flex:1">Max pages per site</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Data</h2>
+      <button class="btn btn-danger" id="clear-all-btn" style="width:100%">Clear All Knowledge Base Data</button>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div id="tabbar">
+    <button class="tab-btn active" data-tab="chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Chat
+    </button>
+    <button class="tab-btn" data-tab="crawler">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Crawler
+    </button>
+    <button class="tab-btn" data-tab="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+const state = {
+  apiKey: localStorage.getItem('apiKey') || '',
+  crawlDepth: parseInt(localStorage.getItem('crawlDepth') || '2'),
+  maxPages: parseInt(localStorage.getItem('maxPages') || '40'),
+  sites: JSON.parse(localStorage.getItem('sites') || '[]'),
+  // sites: [{ url, pages: [{url, title, text, type}], crawledAt }]
+  chatHistory: [],
+  isCrawling: false,
+  isThinking: false,
+};
+
+function saveState() {
+  localStorage.setItem('apiKey', state.apiKey);
+  localStorage.setItem('crawlDepth', state.crawlDepth);
+  localStorage.setItem('maxPages', state.maxPages);
+  // Store only minimal data to stay within localStorage limits
+  const compact = state.sites.map(s => ({
+    url: s.url, crawledAt: s.crawledAt,
+    pages: s.pages.map(p => ({
+      url: p.url, title: p.title,
+      text: p.text.slice(0, 3000), // cap per-page storage
+      type: p.type
+    }))
+  }));
+  try { localStorage.setItem('sites', JSON.stringify(compact)); }
+  catch(e) { console.warn('Storage full, trimming older sites'); }
+}
+
+// ── DOM Refs ───────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const messages    = $('messages');
+const chatInput   = $('chat-input');
+const sendBtn     = $('send-btn');
+const kbBadge     = $('kb-badge');
+const urlList     = $('url-list');
+const newUrlInput = $('new-url-input');
+const progressWrap= $('progress-wrap');
+const progressBar = $('progress-bar');
+const progressTxt = $('progress-text');
+const apiKeyInput = $('api-key-input');
+const depthVal    = $('depth-val');
+const pagesVal    = $('pages-val');
+
+// ── Tab Navigation ─────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    $(`${tab}-screen`).classList.add('active');
+  });
+});
+
+// ── Toast ──────────────────────────────────────────────────────────────
+function toast(msg, duration = 2500) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ── KB Badge ───────────────────────────────────────────────────────────
+function updateBadge() {
+  const total = state.sites.reduce((n, s) => n + s.pages.length, 0);
+  kbBadge.textContent = `${total} page${total !== 1 ? 's' : ''}`;
+}
+
+// ── Settings Init ──────────────────────────────────────────────────────
+apiKeyInput.value = state.apiKey;
+depthVal.textContent = state.crawlDepth;
+pagesVal.textContent = state.maxPages;
+
+$('save-key-btn').addEventListener('click', () => {
+  state.apiKey = apiKeyInput.value.trim();
+  saveState();
+  toast('✓ API key saved');
+});
+
+function makeSteppers(minusId, plusId, valId, key, min, max, step = 1) {
+  $(minusId).addEventListener('click', () => {
+    state[key] = Math.max(min, state[key] - step);
+    $(valId).textContent = state[key]; saveState();
+  });
+  $(plusId).addEventListener('click', () => {
+    state[key] = Math.min(max, state[key] + step);
+    $(valId).textContent = state[key]; saveState();
+  });
+}
+makeSteppers('depth-minus','depth-plus','depth-val','crawlDepth', 1, 4);
+makeSteppers('pages-minus','pages-plus','pages-val','maxPages', 5, 100, 5);
+
+$('clear-all-btn').addEventListener('click', () => {
+  if (!confirm('Clear all crawled data?')) return;
+  state.sites = []; saveState(); renderUrlList(); updateBadge();
+  toast('Knowledge base cleared');
+});
+
+// ── Crawler ────────────────────────────────────────────────────────────
+$('add-crawl-btn').addEventListener('click', () => {
+  const raw = newUrlInput.value.trim();
+  if (!raw) return;
+  const url = raw.startsWith('http') ? raw : 'https://' + raw;
+  startCrawl(url);
+});
+
+newUrlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('add-crawl-btn').click();
+});
+
+async function startCrawl(startUrl) {
+  if (state.isCrawling) { toast('Already crawling…'); return; }
+  if (!state.apiKey) { toast('⚠ Set your API key in Settings first'); return; }
+
+  state.isCrawling = true;
+  $('add-crawl-btn').disabled = true;
+  progressWrap.classList.add('visible');
+  setProgress(0, `Starting crawl of ${startUrl}…`);
+
+  try {
+    const res = await fetch('/api/crawl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: startUrl,
+        depth: state.crawlDepth,
+        maxPages: state.maxPages,
+        apiKey: state.apiKey,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Crawl failed');
+    }
+
+    // Stream progress via Server-Sent Events style (newline-delimited JSON)
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalData = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          if (msg.type === 'progress') {
+            setProgress(msg.pct, msg.text);
+          } else if (msg.type === 'done') {
+            finalData = msg;
+          } else if (msg.type === 'error') {
+            throw new Error(msg.error);
+          }
+        } catch(e) { /* skip malformed lines */ }
+      }
+    }
+
+    if (finalData) {
+      // Remove existing entry for this domain if recrawling
+      const domain = new URL(startUrl).hostname;
+      state.sites = state.sites.filter(s => new URL(s.url).hostname !== domain);
+      state.sites.push({
+        url: startUrl,
+        pages: finalData.pages,
+        crawledAt: new Date().toISOString(),
+      });
+      saveState();
+      renderUrlList();
+      updateBadge();
+      setProgress(100, `Done — ${finalData.pages.length} pages indexed`);
+      toast(`✓ Crawled ${finalData.pages.length} pages`);
+      newUrlInput.value = '';
+    }
+
+  } catch (err) {
+    setProgress(0, `Error: ${err.message}`);
+    toast(`✗ ${err.message}`, 4000);
+  } finally {
+    state.isCrawling = false;
+    $('add-crawl-btn').disabled = false;
+    setTimeout(() => progressWrap.classList.remove('visible'), 3000);
+  }
+}
+
+function setProgress(pct, text) {
+  progressBar.style.width = pct + '%';
+  progressTxt.textContent = text;
+}
+
+// ── URL List Render ────────────────────────────────────────────────────
+function renderUrlList() {
+  if (state.sites.length === 0) {
+    urlList.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <p>No websites crawled yet.<br/>Add a URL above to begin.</p>
+      </div>`;
+    return;
+  }
+
+  urlList.innerHTML = state.sites.map((site, i) => {
+    const factual    = site.pages.filter(p => p.type === 'factual').length;
+    const subjective = site.pages.filter(p => p.type === 'subjective').length;
+    const date       = new Date(site.crawledAt).toLocaleDateString();
+    return `
+      <div class="url-item">
+        <div class="url-item-info">
+          <div class="url-item-url">${site.url}</div>
+          <div class="url-item-meta">
+            ${site.pages.length} pages · ${date}
+            &nbsp;<span class="badge badge-factual">${factual}F</span>
+            &nbsp;<span class="badge badge-subjective">${subjective}S</span>
+          </div>
+        </div>
+        <div class="url-item-actions">
+          <button class="btn btn-ghost btn-sm" onclick="recrawl(${i})">↺</button>
+          <button class="btn btn-danger btn-sm" onclick="removeSite(${i})">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function removeSite(i) {
+  state.sites.splice(i, 1);
+  saveState(); renderUrlList(); updateBadge();
+  toast('Site removed');
+}
+
+function recrawl(i) {
+  const url = state.sites[i].url;
+  newUrlInput.value = url;
+  document.querySelector('[data-tab="crawler"]').click();
+  startCrawl(url);
+}
+
+// ── Chat ───────────────────────────────────────────────────────────────
+function autoResize() {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+}
+chatInput.addEventListener('input', () => {
+  autoResize();
+  sendBtn.disabled = !chatInput.value.trim() || state.isThinking;
+});
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+});
+sendBtn.addEventListener('click', doSend);
+
+function doSend() {
+  const text = chatInput.value.trim();
+  if (!text || state.isThinking) return;
+  chatInput.value = ''; chatInput.style.height = 'auto';
+  sendBtn.disabled = true;
+  sendMessage(text);
+}
+
+function appendMsg(role, content) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role === 'system') {
+    div.innerHTML = `<div class="bubble">${content}</div>`;
+  } else if (role === 'user') {
+    div.innerHTML = `<div class="bubble">${escHtml(content)}</div>
+      <div class="avatar">👤</div>`;
+  } else {
+    div.innerHTML = `<div class="avatar">🤖</div>
+      <div class="bubble">${formatMd(escHtml(content))}</div>`;
+  }
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'msg ai'; div.id = 'typing-indicator';
+  div.innerHTML = `<div class="avatar">🤖</div>
+    <div class="bubble"><div class="typing-dots"><span/><span/><span/></div></div>`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+function hideTyping() {
+  const el = $('typing-indicator');
+  if (el) el.remove();
+}
+
+async function sendMessage(text) {
+  if (!state.apiKey) {
+    appendMsg('system', '⚠ Please set your API key in <strong>Settings</strong>.');
+    return;
+  }
+
+  appendMsg('user', text);
+  state.chatHistory.push({ role: 'user', content: text });
+  state.isThinking = true;
+  showTyping();
+
+  // Build context from local knowledge base
+  const context = buildContext(text);
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey: state.apiKey,
+        message: text,
+        context,
+        history: state.chatHistory.slice(-8), // last 4 turns
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Request failed');
+    }
+
+    const data = await res.json();
+    hideTyping();
+    appendMsg('ai', data.reply);
+    state.chatHistory.push({ role: 'assistant', content: data.reply });
+
+  } catch (err) {
+    hideTyping();
+    appendMsg('ai', `⚠️ Error: ${err.message}`);
+  } finally {
+    state.isThinking = false;
+    sendBtn.disabled = !chatInput.value.trim();
+  }
+}
+
+// ── Local Context Search ───────────────────────────────────────────────
+function buildContext(query) {
+  const allPages = state.sites.flatMap(s => s.pages);
+  if (allPages.length === 0) return '';
+
+  const qTokens = tokenize(query);
+  const scored = allPages.map(page => {
+    const pageTokens = tokenize(page.text);
+    const freq = {};
+    pageTokens.forEach(t => { freq[t] = (freq[t] || 0) + 1; });
+    let score = 0;
+    qTokens.forEach(t => {
+      if (freq[t]) score += freq[t] / pageTokens.length;
+    });
+    // Title match bonus
+    const titleLow = (page.title || '').toLowerCase();
+    qTokens.forEach(t => { if (titleLow.includes(t)) score += 0.3; });
+    // Factual boost
+    if (page.type === 'factual') score *= 1.2;
+    return { page, score };
+  });
+
+  const top = scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  if (top.length === 0) return '';
+
+  return top.map(({ page }, i) =>
+    `--- Source ${i+1}: ${page.title || page.url} [${(page.type||'mixed').toUpperCase()}] ---\n` +
+    `URL: ${page.url}\n${page.text.slice(0, 1400)}`
+  ).join('\n\n');
+}
+
+function tokenize(text) {
+  const stop = new Set(['the','and','for','are','but','not','you','all',
+    'with','that','this','have','from','they','will','been','your','about',
+    'would','other','there','their','what','which','when','can','more','also']);
+  return text.toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(t => t.length >= 3 && !stop.has(t));
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatMd(s) {
+  // Very basic markdown: **bold**, `code`, and newlines
+  return s
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code style="background:#0f172a;padding:1px 5px;border-radius:4px;font-size:13px">$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────
+renderUrlList();
+updateBadge();
+</script>
+</body>
+</html>
